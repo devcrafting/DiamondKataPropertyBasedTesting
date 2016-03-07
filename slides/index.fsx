@@ -31,7 +31,7 @@ open Xunit
 
 ## Inspired by [@ScottWlaschin](https://twitter.com/ScottWlaschin) and [@ploeh](http://blog.ploeh.dk/2016/02/10/types-properties-software/)
 
-- Blog post ["Introduction to Property Based"]()
+- Blog post ["Introduction to Property Based Testing"]()
 - Blog posts serie ["Types + Properties = Software"](http://blog.ploeh.dk/2016/02/10/types-properties-software/)
 
 <small>NB : only in F#, but F# is really great and easy to understand ! ;)</small>
@@ -112,7 +112,7 @@ let ``Diamond of A, return A`` () =
     diamondOf 'A' | should equal "A"
 
 [<Fact>]
-let ``Diamond of A, return A`` () =
+let ``Diamond of B, return A-BB-A`` () =
     diamondOf 'B' | should equal " A \nB B\n A "
 
 (**
