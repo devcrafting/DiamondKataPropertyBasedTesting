@@ -1,0 +1,341 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Property Based Testing</title>
+    <meta name="description" content="Property Based Testing">
+    <meta name="author" content="Clément Bouillier">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="//code.jquery.com/jquery-1.8.0.js"></script>
+    <script src="//code.jquery.com/ui/1.8.23/jquery-ui.js"></script>
+    <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/reveal.css">
+    <link rel="stylesheet" href="css/theme/night.css" id="theme">
+    <link type="text/css" rel="stylesheet" href="fsharp.formatting/styles/style.css" />
+    <link type="text/css" rel="stylesheet" href="fsharp.formatting/styles/deedle.css" />
+    <link type="text/css" rel="stylesheet" href="css/custom.css" />
+    <script src="fsharp.formatting/styles/tips.js" type="text/javascript"></script>
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+    <link rel="stylesheet" href="css/fsreveal.css">
+    <!-- If the query includes 'print-pdf', include the PDF print sheet -->
+    <script>
+			if( window.location.search.match( /print-pdf/gi ) ) {
+				var link = document.createElement( 'link' );
+				link.rel = 'stylesheet';
+				link.type = 'text/css';
+				link.href = 'css/print/pdf.css';
+				document.getElementsByTagName( 'head' )[0].appendChild( link );
+			}
+    </script>
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+    <script language="javascript" type="text/javascript">
+        function init()
+        {
+            websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+            websocket.onmessage = function(evt) { location.reload(); };
+        }
+        window.addEventListener("load", init, false);
+    </script>
+</head>
+<body>
+    <div class="reveal">
+        
+        <!-- Any section element inside of this container is displayed as a slide -->
+        <div class="slides">
+            <section >
+<h2>Property Based Testing</h2>
+<h3>Human Talks - March 2016</h3>
+<p><small>Clément Bouillier - <a href="http://www.devcrafting.com">DevCrafting</a> - <a href="http://twitter.com/clem_bouillier">@clem_bouillier</a></small></p>
+</section>
+<section >
+<h2>Inspired by <a href="https://twitter.com/ScottWlaschin">@ScottWlaschin</a> and <a href="http://blog.ploeh.dk/2016/02/10/types-properties-software/">@ploeh</a></h2>
+<ul>
+<li>Blog post <a href="">"Introduction to Property Based"</a></li>
+<li>Blog posts serie <a href="http://blog.ploeh.dk/2016/02/10/types-properties-software/">"Types + Properties = Software"</a></li>
+</ul>
+<small>NB : only in F#, but F# is really great and easy to understand ! ;)</small>
+</section>
+<section >
+<section >
+<h2>When "doing TDD well" is <br/>not enough...</h2>
+</section>
+<section >
+<h3>The EDFH <br/>(Enterprise Developer From Hell)</h3>
+<p><img src="images/EDFH.png" alt="EDFH" /></p>
+<blockquote>
+<p>A rule of thumb : write the minimal code that will pass the test</p>
+</blockquote>
+</section>
+<section >
+<h3>Trivial example : add</h3>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp">[&lt;<span class="i">Fact</span>&gt;]
+<span class="k">let</span> <span class="i">``When I add 1 and 2, I expect 3``</span> () <span class="o">=</span>
+    <span class="i">add</span> <span class="n">1</span> <span class="n">2</span> <span class="o">|&gt;</span> <span class="i">should</span> <span class="i">equal</span> <span class="n">3</span>
+</code></pre></td>
+</tr>
+</table>
+<p>EDFH would simply implement it with:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">add</span> <span class="i">x</span> <span class="i">y</span> <span class="o">=</span> <span class="n">3</span>
+</code></pre></td>
+</tr>
+</table>
+</section>
+<section >
+<h3>First step : generate arbitrary data</h3>
+<p>Using an arbitrary data generator, the EDFH has to find a non trivial implementation.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">rand</span> <span class="o">=</span> <span class="i">System</span><span class="o">.</span><span class="i">Random</span>()
+<span class="k">let</span> <span class="i">randInt</span>() <span class="o">=</span> <span class="i">rand</span><span class="o">.</span><span class="i">Next</span>()
+
+[&lt;<span class="i">Fact</span>&gt;]
+<span class="k">let</span> <span class="i">``When I add two numbers, it returns the sum``</span> () <span class="o">=</span>
+    <span class="k">let</span> <span class="i">x</span> <span class="o">=</span> <span class="i">randInt</span>()
+    <span class="k">let</span> <span class="i">y</span> <span class="o">=</span> <span class="i">randInt</span>()
+    <span class="i">add</span> <span class="i">x</span> <span class="i">y</span> <span class="o">|&gt;</span> <span class="i">should</span> <span class="i">equal</span> (<span class="i">x</span> <span class="o">+</span> <span class="i">y</span>)
+</code></pre></td>
+</tr>
+</table>
+<p>But "problem", we are using "+", i.e tests depends on an implementation, we have to find a better way...
+Note: it is sometimes acceptable ("test oracle" technique)</p>
+</section>
+<section >
+<h3>More complex : have you ever tried Diamond kata ?</h3>
+<blockquote>
+<p>Given a letter, display a diamond with letters from A to the given letter</p>
+</blockquote>
+</section>
+<section >
+<h3>Example of Diamond Kata</h3>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">c</span> <span class="o">=</span> <span class="s">&#39;E&#39;</span>
+<span class="i">printfn</span> <span class="s">&quot;Diamond of %c:\n%s&quot;</span> <span class="i">c</span> (<span class="i">diamondOf</span> <span class="i">c</span>)
+</code></pre></td>
+</tr>
+</table>
+<table class="pre"><tr><td><pre><code>Diamond of E:
+    A    
+   B B   
+  C   C  
+ D     D 
+E       E
+ D     D 
+  C   C  
+   B B   
+    A</code></pre></td></tr></table>
+</section>
+<section >
+<h3>Pretty sure you tried it this way...</h3>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp">[&lt;<span class="i">Fact</span>&gt;]
+<span class="k">let</span> <span class="i">``Diamond of A, return A``</span> () <span class="o">=</span>
+    <span class="i">diamondOf</span> <span class="s">&#39;A&#39;</span> | <span class="i">should</span> <span class="i">equal</span> <span class="s">&quot;A&quot;</span>
+
+[&lt;<span class="i">Fact</span>&gt;]
+<span class="k">let</span> <span class="i">``Diamond of A, return A``</span> () <span class="o">=</span>
+    <span class="i">diamondOf</span> <span class="s">&#39;B&#39;</span> | <span class="i">should</span> <span class="i">equal</span> <span class="s">&quot; A \nB B\n A &quot;</span>
+</code></pre></td>
+</tr>
+</table>
+<p>And so on, but it becomes more and more difficult...need to find another way again.</p>
+</section>
+</section>
+<section >
+<section >
+<h2>Then, let's try Property Based Testing</h2>
+</section>
+<section >
+<h3>Trivial example : add</h3>
+<p>Remind the example, rather than depending on an implementation in test, let's find some properties that describe a sum...keeping idea of arbitrary data</p>
+<p>Recall your math/algebra lessons...</p>
+<p><img src="images/algebra.jpg" alt="Math/algebra lessons were hard..." /></p>
+</section>
+<section >
+<h3>Sum is commutative</h3>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">x</span> <span class="o">=</span> <span class="i">randInt</span>()
+<span class="k">let</span> <span class="i">y</span> <span class="o">=</span> <span class="i">randInt</span>()
+<span class="i">add</span> <span class="i">x</span> <span class="i">y</span> <span class="o">|&gt;</span> <span class="i">should</span> <span class="i">equal</span> <span class="i">add</span> <span class="i">y</span> <span class="i">x</span>
+</code></pre></td>
+</tr>
+</table>
+<p>Oups, the EDFH can always give malicious answer :)</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">add</span> <span class="i">x</span> <span class="i">y</span> <span class="o">=</span> <span class="n">0</span>
+</code></pre></td>
+</tr>
+</table>
+</section>
+<section >
+<h3>Sum has 0 as identity element</h3>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="i">add</span> <span class="i">x</span> <span class="n">0</span> <span class="o">|&gt;</span> <span class="i">should</span> <span class="i">equal</span> <span class="i">x</span>
+</code></pre></td>
+</tr>
+</table>
+<p>Test fails with the malicious implementation, the EDFH has to implement "correctly"</p>
+</section>
+<section >
+<h3>Diamond Kata again</h3>
+<p>Some properties of a Diamond:</p>
+<ul>
+<li>First and last lines contains only one A</li>
+</ul>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp">(<span class="i">diamondOf</span> <span class="i">c</span> <span class="o">|&gt;</span> <span class="i">Seq</span><span class="o">.</span><span class="i">head</span>)<span class="o">.</span><span class="i">Trim</span>() <span class="o">|&gt;</span> <span class="i">should</span> <span class="i">equal</span> <span class="s">&quot;A&quot;</span>
+(<span class="i">diamondOf</span> <span class="i">c</span> <span class="o">|&gt;</span> <span class="i">Seq</span><span class="o">.</span><span class="i">rev</span> <span class="o">|&gt;</span> <span class="i">Seq</span><span class="o">.</span><span class="i">head</span>)<span class="o">.</span><span class="i">Trim</span>() <span class="o">|&gt;</span> <span class="i">should</span> <span class="i">equal</span> <span class="s">&quot;A&quot;</span>
+</code></pre></td>
+</tr>
+</table>
+<ul>
+<li>Diamond is as wide as high...</li>
+<li>Diamond lines are symetric...</li>
+<li>Diamond lines always contains 2 letter (but A)...</li>
+</ul>
+</section>
+<section >
+<h3>Some tools to generate arbitrary data</h3>
+<p>QuickCheck (Haskell) is known as the original library, so you will find lots of parents : FsCheck, ScalaCheck, JUnit-QuickCheck...</p>
+<p>Goal of this libraries is to simplify generation of arbitrary data, even based on complex types.</p>
+<p>It becomes even more interesting with Type Driven Development...</p>
+</section>
+<section >
+<h3>Example with Tennis Kata</h3>
+<p>Defining Tennis game states : <a href="http://fsharpforfunandprofit.com/posts/designing-with-types-making-illegal-states-unrepresentable">make illegal states unrepresentable</a> (Type Driven Development)</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span class="i">Player</span> <span class="o">=</span> <span class="i">PlayerOne</span> | <span class="i">PlayerTwo</span>
+<span class="k">type</span> <span class="i">Score</span> <span class="o">=</span>
+| <span class="i">Points</span> <span class="k">of</span> <span class="i">PointsData</span>
+| <span class="i">Forty</span> <span class="k">of</span> <span class="i">FortyData</span>
+| <span class="i">Deuce</span>
+| <span class="i">Advantage</span> <span class="k">of</span> <span class="i">Player</span>
+| <span class="i">Game</span> <span class="k">of</span> <span class="i">Player</span>
+</code></pre></td>
+</tr>
+</table>
+<p><em>Ref: <a href="http://blog.ploeh.dk/2016/02/16/types-properties-software-composition/">blog posts from @ploeh</a></em></p>
+</section>
+<section >
+<h3>Then, we can generate <br/>arbitraty "complex" data</h3>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+<span class="l">9: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp">[&lt;<span class="i">Property</span>&gt;]
+<span class="k">let</span> <span class="i">``A game with less than four balls isn&#39;t over``</span> (<span class="i">wins</span> <span class="o">:</span> <span class="i">Player</span> <span class="i">list</span>) <span class="o">=</span>
+    <span class="k">let</span> <span class="i">actual</span> <span class="o">:</span> <span class="i">Score</span> <span class="o">=</span> <span class="i">wins</span> <span class="o">|&gt;</span> <span class="i">Seq</span><span class="o">.</span><span class="i">truncate</span> <span class="n">3</span> <span class="o">|&gt;</span> <span class="i">scoreSeq</span>
+    <span class="i">test</span> &lt;@ <span class="i">actual</span> <span class="o">|&gt;</span> (<span class="i">not</span> <span class="o">&lt;&lt;</span> <span class="i">isGame</span>) @&gt;
+
+[&lt;<span class="i">Property</span>&gt;]
+<span class="k">let</span> <span class="i">``A game where one player wins all balls is over in four balls``</span> (<span class="i">player</span>) <span class="o">=</span>
+    <span class="k">let</span> <span class="i">fourWins</span> <span class="o">=</span> <span class="i">Seq</span><span class="o">.</span><span class="i">init</span> <span class="n">4</span> (<span class="k">fun</span> _ <span class="k">-&gt;</span> <span class="i">player</span>)
+    <span class="i">scoreSeq</span> <span class="i">fourWins</span> <span class="o">|&gt;</span> <span class="i">should</span> <span class="i">equal</span> (<span class="i">Game</span> <span class="i">player</span>)
+</code></pre></td>
+</tr>
+</table>
+</section>
+</section>
+<section >
+<section >
+<h2>More...</h2>
+<p>For those who go to DevoxxFR 2016, don't miss Univertisity of <a href="http://www.twitter.com/@malk_zameth">@malk_zameth</a> et <a href="http://www.twitter.com/@cyriux">@cyriux</a></p>
+<p>Read more on the web, lots of resources...</p>
+<p>Go deeper with Type Driven Development, see for example an introduction in <a href="http://blog.ploeh.dk/2016/02/10/types-properties-software/">"Types + Properties = Software"</a></p>
+<p>TDD next time ? But Type, not Test ! ;)</p>
+<h3>Thanks</h3>
+</section>
+<section >
+<h3>For the fun, have a look at <a href="https://github.com/devcrafting/DiamondKataPropertyBasedTesting">this slides source code</a> :)</h3>
+<p>Thanks <a href="http://fsprojects.github.io/FsReveal/">FsReveal</a></p>
+<p>Based on <a href="F# Formatting">RevealJS</a> and <a href="https://tpetricek.github.io/FSharp.Formatting/">F# Formatting</a></p>
+<p>Examples in F# are executed to produce output integrated this slides, for ex: diamond example</p>
+</section>
+</section>
+
+
+        </div>
+    </div>
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.js"></script>
+    <script>
+        // Add the nohighlight class and data-noescape attribute to code elements that have already been formatted by FSharp.Formatting
+        $('pre.highlighted code').addClass('nohighlight').attr('data-noescape', '');
+
+        // Full list of configuration options available here:
+        // https://github.com/hakimel/reveal.js#configuration
+        Reveal.initialize({
+            controls: true,
+            progress: true,
+            history: true,
+            center: true,
+
+            transition: 'defaultArg', // default/cube/page/concave/zoom/linear/fade/none
+
+            // Parallax scrolling
+            // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+            // parallaxBackgroundSize: '2100px 900px',
+
+            // Optional libraries used to extend on reveal.js
+            dependencies: [
+                { src: 'lib/js/classList.js', condition: function () { return !document.body.classList; } },
+                { src: 'plugin/markdown/marked.js', condition: function () { return !!document.querySelector('[data-markdown]'); } },
+                { src: 'plugin/markdown/markdown.js', condition: function () { return !!document.querySelector('[data-markdown]'); } },
+                { src: 'plugin/highlight/highlight.js', async: true, callback: function () { hljs.initHighlightingOnLoad(); } },
+                { src: 'plugin/zoom-js/zoom.js', async: true, condition: function () { return !!document.body.classList; } },
+                { src: 'plugin/notes/notes.js', async: true, condition: function () { return !!document.body.classList; } }
+            ]
+        });
+
+    </script>
+</body>
+</html>
+
